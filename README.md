@@ -1,2 +1,11 @@
-# xyz.etcd.manager
-A mini ETCD manager tools, build with java.
+# About xyz.etcd.manager
+It's a mini ETCD manager tools, build with java.
+
+### Easy to use
+1. You need install jdk8.0+ first.
+2. You can directly run the xyz.etcd.manager.jar in the release folder.
+
+### Help
+1.Write the issue.
+2.Email me: yys@8888.org.cn
+
