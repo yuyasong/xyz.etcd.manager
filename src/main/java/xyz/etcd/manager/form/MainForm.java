@@ -3,16 +3,25 @@ package xyz.etcd.manager.form;
 import io.etcd.jetcd.KeyValue;
 import io.etcd.jetcd.Watch;
 import io.etcd.jetcd.lease.LeaseTimeToLiveResponse;
-import io.etcd.jetcd.watch.WatchEvent;
-import io.etcd.jetcd.watch.WatchResponse;
 import xyz.etcd.manager.common.DisplayUtil;
 import xyz.etcd.manager.service.EtcdClient;
 
 import javax.swing.*;
-import javax.swing.tree.*;
+import javax.swing.tree.DefaultMutableTreeNode;
+import javax.swing.tree.DefaultTreeModel;
+import javax.swing.tree.TreeNode;
+import javax.swing.tree.TreePath;
 import java.awt.*;
-import java.awt.event.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import java.io.BufferedReader;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.List;
 import java.util.Vector;
@@ -26,6 +35,7 @@ public class MainForm {
     JPanel tp;
     JPanel cp;
     JTree tree;
+    JScrollPane treePanel;
     DefaultTreeModel defaultTreeModel;
     DefaultMutableTreeNode root;
     JLabel keyLable;
@@ -36,6 +46,7 @@ public class MainForm {
     JTextField ttlText;
     JButton saveBtn;
     JButton delBtn;
+    JButton batchAddBtn;
 
     public MainForm(String etctUrl) {
         m_etcdUrlStr = etctUrl;
@@ -64,7 +75,7 @@ public class MainForm {
         tree = new JTree(root);
         defaultTreeModel=(DefaultTreeModel) tree.getModel();
         tree.setEditable(false);
-        tree.setBounds(0, 0, tp.getWidth(), tp.getHeight());
+        //tree.setBounds(0, 0, tp.getWidth(), tp.getHeight());
         tree.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent mouseEvent) {
@@ -111,7 +122,11 @@ public class MainForm {
                 }
             }
         });
-        tp.add(tree);
+
+        treePanel=new JScrollPane();
+        treePanel.setViewportView(tree);
+        treePanel.setBounds(0, 0, tp.getWidth(), tp.getHeight()-36);
+        tp.add(treePanel);
 
         //添加或编辑的Key
         keyLable=new JLabel("KEY:");
@@ -220,6 +235,39 @@ public class MainForm {
         });
         cp.add(delBtn);
 
+        //批量导入按钮
+        int batchx = 450 - 120 - 10;
+        batchAddBtn=new JButton("批量导入");
+        batchAddBtn.setBounds(batchx,savey,120,30);
+        batchAddBtn.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent actionEvent) {
+                Frame f=new JFrame();
+                FileDialog openD=new FileDialog(f,"打开",FileDialog.LOAD);
+                openD.setVisible(true);
+
+                BufferedReader in=null;
+                try {
+                    in =new BufferedReader(new FileReader((openD.getDirectory()+openD.getFile())));
+                    List<String> inStrList=new ArrayList<>();
+                    String lineStr=null;
+                    while ((lineStr=in.readLine())!=null){
+                        inStrList.add(lineStr);
+                    }
+
+                    BatchAddWithText(inStrList);
+
+                    in.close();
+                    JOptionPane.showMessageDialog(null, "批量导入成功", "提示", JOptionPane.INFORMATION_MESSAGE);
+                } catch (FileNotFoundException e) {
+                    //e.printStackTrace();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        });
+        cp.add(batchAddBtn);
+
         df.setVisible(true);
 
         //初始化所有节点
@@ -237,6 +285,40 @@ public class MainForm {
             m_watcher=m_etcdClient.watch("/",listener);
         } catch (Exception e) {
             e.printStackTrace();
+        }
+    }
+
+    private void BatchAddWithText(List<String> stringList){
+        if(stringList==null || stringList.size()<=0){
+            return;
+        }
+
+        String prefix="";
+        //解析前缀为：行为-prefix:开头的
+        final String PREFIX_COUST="--prefix:";
+        for (String s : stringList) {
+            if(s.startsWith(PREFIX_COUST)){
+                prefix=s.substring(PREFIX_COUST.length());
+                continue;
+            }
+
+            if(s.startsWith("#") || s=="" || s.trim()=="" || !s.contains("=")){
+                continue;
+            }
+
+            //暂时不支持TTL导入逻辑，因为不知道怎么定义格式比较优雅...
+            int ttl=0;
+            String[] splits=new String[2];
+            String key = s.substring(0,s.indexOf("=")).trim();
+            String value = s.substring(s.indexOf("=")+1).trim();
+            try {
+                if(key==""){
+                    continue;
+                }
+                m_etcdClient.set(prefix+key,value,ttl);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
         }
     }
 
