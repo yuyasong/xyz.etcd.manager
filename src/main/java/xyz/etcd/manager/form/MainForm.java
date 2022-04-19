@@ -3,6 +3,7 @@ package xyz.etcd.manager.form;
 import io.etcd.jetcd.KeyValue;
 import io.etcd.jetcd.Watch;
 import io.etcd.jetcd.lease.LeaseTimeToLiveResponse;
+import io.etcd.jetcd.watch.WatchEvent;
 import xyz.etcd.manager.common.DisplayUtil;
 import xyz.etcd.manager.service.EtcdClient;
 
@@ -43,9 +44,9 @@ public class MainForm {
     JTextArea contentText;
     JScrollPane contentTextPanel;
     JLabel ttlLable;
-    JLabel versionLable;
-    JTextField ttlText;
     JLabel versionLabel;
+    JTextField ttlText;
+    JLabel versionLabelText;
     JButton saveBtn;
     JButton delBtn;
     JButton batchAddBtn;
@@ -94,36 +95,7 @@ public class MainForm {
                         }
 
                         //查找ETCD的值
-                        try {
-                            KeyValue keyValue = m_etcdClient.get(path);
-                            if(keyValue!=null){
-                                contentText.setText(keyValue.getValue().toString(StandardCharsets.UTF_8));
-                                //ttlText.setText(String.valueOf(keyValue.getLease()));
-                                keyText.setText(path);
-
-                                //查找ttl
-                                LeaseTimeToLiveResponse lease = m_etcdClient.getLease(path);
-
-                                String ttlStr="0";
-                                if(lease.getTTl()>0){
-                                    ttlStr=String.valueOf(lease.getTTl());
-                                }
-
-                                ttlText.setText(ttlStr);
-
-                                //查看version
-                                long version = keyValue.getVersion();
-                                versionLabel.setText(String.valueOf(version));
-                            }
-                        }
-                        catch (java.util.concurrent.ExecutionException exception){
-                            if(exception.getMessage().contains("key is not provided")){
-                                //忽略没找到键的查询异常
-                            }
-                        }
-                        catch (Exception e) {
-                            e.printStackTrace();
-                        }
+                        initEditPanel(path);
                     }
                 }
             }
@@ -162,13 +134,13 @@ public class MainForm {
 
         //Version文本
         int versionLeft=ttlText.getX()+ttlText.getWidth();
-        versionLable=new JLabel("Version:");
-        versionLable.setBounds(versionLeft+10,ttly,65,30);
-        versionLabel =new JLabel();
-        versionLabel.setBounds(versionLeft+versionLable.getWidth(),ttly,80,30);
-        versionLabel.setText("0");
-        cp.add(versionLable);
+        versionLabel =new JLabel("Version:");
+        versionLabel.setBounds(versionLeft+10,ttly,65,30);
+        versionLabelText =new JLabel();
+        versionLabelText.setBounds(versionLeft+ versionLabel.getWidth(),ttly,80,30);
+        versionLabelText.setText("0");
         cp.add(versionLabel);
+        cp.add(versionLabelText);
 
         //操作按钮
         int savey=45+contentTextPanel.getHeight()+10;
@@ -201,7 +173,7 @@ public class MainForm {
                 //重新加载version
                 try {
                     long newVersion = m_etcdClient.get(key).getVersion();
-                    versionLabel.setText(String.valueOf(newVersion));
+                    versionLabelText.setText(String.valueOf(newVersion));
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
@@ -241,6 +213,7 @@ public class MainForm {
                                 keyText.setText("");
                                 contentText.setText("");
                                 ttlText.setText("0");
+                                versionLabelText.setText("0");
                             });
                         } catch (Exception e) {
                             e.printStackTrace();
@@ -303,6 +276,14 @@ public class MainForm {
                 //直接重新加载比较容易;
                 initTree();
             });
+
+            for (WatchEvent event : watchResponse.getEvents()) {
+                KeyValue keyValue = event.getKeyValue();
+                String kStr=keyValue.getKey().toString(StandardCharsets.UTF_8);
+                if(kStr!=null && kStr.equals(keyText.getText())){
+                    initEditPanel(kStr);
+                }
+            }
         });
 
         try {
@@ -355,6 +336,33 @@ public class MainForm {
                     String key = keyValue.getKey().toString(StandardCharsets.UTF_8);
                     AddOneKey(key);
                 }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void initEditPanel(String key){
+        try {
+            KeyValue keyValue = m_etcdClient.get(key);
+            if(keyValue!=null){
+                contentText.setText(keyValue.getValue().toString(StandardCharsets.UTF_8));
+                //ttlText.setText(String.valueOf(keyValue.getLease()));
+                keyText.setText(key);
+
+                //查找ttl
+                LeaseTimeToLiveResponse lease = m_etcdClient.getLease(key);
+
+                String ttlStr="0";
+                if(lease.getTTl()>0){
+                    ttlStr=String.valueOf(lease.getTTl());
+                }
+
+                ttlText.setText(ttlStr);
+
+                //查看version
+                long version = keyValue.getVersion();
+                versionLabelText.setText(String.valueOf(version));
             }
         } catch (Exception e) {
             e.printStackTrace();
