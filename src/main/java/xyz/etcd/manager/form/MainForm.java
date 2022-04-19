@@ -43,7 +43,9 @@ public class MainForm {
     JTextArea contentText;
     JScrollPane contentTextPanel;
     JLabel ttlLable;
+    JLabel versionLable;
     JTextField ttlText;
+    JLabel versionLabel;
     JButton saveBtn;
     JButton delBtn;
     JButton batchAddBtn;
@@ -108,6 +110,10 @@ public class MainForm {
                                 }
 
                                 ttlText.setText(ttlStr);
+
+                                //查看version
+                                long version = keyValue.getVersion();
+                                versionLabel.setText(String.valueOf(version));
                             }
                         }
                         catch (java.util.concurrent.ExecutionException exception){
@@ -154,6 +160,16 @@ public class MainForm {
         cp.add(ttlLable);
         cp.add(ttlText);
 
+        //Version文本
+        int versionLeft=ttlText.getX()+ttlText.getWidth();
+        versionLable=new JLabel("Version:");
+        versionLable.setBounds(versionLeft+10,ttly,65,30);
+        versionLabel =new JLabel();
+        versionLabel.setBounds(versionLeft+versionLable.getWidth(),ttly,80,30);
+        versionLabel.setText("0");
+        cp.add(versionLable);
+        cp.add(versionLabel);
+
         //操作按钮
         int savey=45+contentTextPanel.getHeight()+10;
         saveBtn=new JButton("保存");
@@ -180,6 +196,14 @@ public class MainForm {
                     } catch (Exception e) {
                         e.printStackTrace();
                     }
+                }
+
+                //重新加载version
+                try {
+                    long newVersion = m_etcdClient.get(key).getVersion();
+                    versionLabel.setText(String.valueOf(newVersion));
+                } catch (Exception e) {
+                    e.printStackTrace();
                 }
 
                 JOptionPane.showMessageDialog(null,"保存成功","提示",JOptionPane.INFORMATION_MESSAGE);
